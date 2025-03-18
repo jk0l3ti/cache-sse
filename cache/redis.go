@@ -33,18 +33,23 @@ func (r *RedisCache) getKey(ctx context.Context, key string) (string, error) {
 // redis-cli config set notify-keyspace-events KEA, and '__keyspace@0__:my-key' is the pattern
 func (r *RedisCache) Stream(ctx context.Context, key string, ch chan<- any) {
 	pubsub := r.client.PSubscribe(ctx, fmt.Sprintf("__keyspace@0__:%s", key))
-	for msg := range pubsub.Channel() {
-		switch msg.Payload {
-		case "set":
-			resp, err := r.getKey(ctx, key)
-			if err != nil {
-				fmt.Println("failed to read", key, "err: ", err.Error())
-				continue
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case msg := <-pubsub.Channel():
+			switch msg.Payload {
+			case "set":
+				resp, err := r.getKey(ctx, key)
+				if err != nil {
+					fmt.Println("failed to read", key, "err: ", err.Error())
+					continue
+				}
+				ch <- resp
+			case "expired", "del":
+				fmt.Println(key, "got expired or deleted")
+				return
 			}
-			ch <- resp
-		case "expired", "del":
-			fmt.Println(key, "got expired or deleted")
-			close(ch)
 		}
 	}
 }

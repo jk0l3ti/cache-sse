@@ -37,11 +37,15 @@ func (d *DiceCache) Stream(ctx context.Context, key string, ch chan<- any) {
 		fmt.Println("error on watch:", err.Error())
 		return
 	}
-	for msg := range resp {
-		if msg.GetVNil() {
-			close(ch)
+	for {
+		select {
+		case <-ctx.Done():
 			return
+		case msg := <-resp:
+			if msg.GetVNil() {
+				return
+			}
+			ch <- msg.GetVStr()
 		}
-		ch <- msg.GetVStr()
 	}
 }

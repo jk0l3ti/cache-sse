@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	cacheType := cache.Dice
+	cacheType := cache.Redis
 	server, err := server.NewServer(cacheType)
 	if err != nil {
 		log.Fatal("failed to start server", err.Error())

@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 
@@ -25,10 +24,13 @@ func readAndPushSse(cache cache.Cache, key string) func(w http.ResponseWriter, r
 			return
 		}
 		ch := make(chan any, 1)
-		go cache.Stream(context.TODO(), key, ch)
+		go func() {
+			defer close(ch)
+			cache.Stream(r.Context(), key, ch)
+		}()
 		for msg := range ch {
-			fmt.Fprintf(w, "data: %s\n\n", msg) // Send JSON as SSE event
-			flusher.Flush()                     // Immediately send data to the client
+			fmt.Fprintf(w, "data: %s\n\n", msg)
+			flusher.Flush() // Immediately send data to the client
 		}
 	}
 }
@@ -36,6 +38,7 @@ func readAndPushSse(cache cache.Cache, key string) func(w http.ResponseWriter, r
 func handleDefault(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "Hello World!")
 }
+
 func NewServer(cacheType cache.CacheType) (*Server, error) {
 	cache, err := cache.NewCache(cacheType)
 	if err != nil {
